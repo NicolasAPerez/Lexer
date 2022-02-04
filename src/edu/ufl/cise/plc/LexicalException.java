@@ -3,7 +3,7 @@ package edu.ufl.cise.plc;
 import edu.ufl.cise.plc.IToken.SourceLocation;
 
 @SuppressWarnings("serial")
-public class LexicalException extends PLCException {
+public class LexicalException extends edu.ufl.cise.plc.PLCException {
 
 	public LexicalException(String error_message, SourceLocation loc) {
 		super(error_message, loc);
