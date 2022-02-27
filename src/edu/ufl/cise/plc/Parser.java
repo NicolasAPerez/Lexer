@@ -68,7 +68,15 @@ public class Parser implements IParser {
 
     //Non-terminals
     Expr expr() throws LexicalException, SyntaxException {
-        return binaryExpr();
+        if (isUnaryExpr()){
+            return logicalOrExpr();
+        }
+        else if(isKind(IToken.Kind.KW_IF)){
+            return conditionalExpr();
+        }
+        else {
+            throw new SyntaxException("ERROR: " + parsing.getText() + " is not a " + "Expr");
+        }
     }
 
     Expr primaryExpr() throws LexicalException, SyntaxException {
@@ -160,8 +168,7 @@ public class Parser implements IParser {
         return expression;
     }
 
-    //TODO: Either combine all the conditons if theres no way to check order and it doesnt matter, or find a way to check AST order of multiplicative,additive,etc.
-    Expr binaryExpr() throws LexicalException, SyntaxException {
+    Expr multiplicativeExpr() throws LexicalException, SyntaxException {
         IToken first = parsing;
         IToken op = null;
         Expr left = unaryExpr();
@@ -173,31 +180,88 @@ public class Parser implements IParser {
             right = unaryExpr();
             left = new BinaryExpr(first,left,op,right);
         }
+
+        return left;
+    }
+
+    Expr additiveExpr() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        IToken op = null;
+        Expr left = multiplicativeExpr();
+        Expr right = null;
+
         while (isKind(IToken.Kind.PLUS, IToken.Kind.MINUS)){
             op = parsing;
             consume();
-            right = binaryExpr();
+            right = multiplicativeExpr();
             left = new BinaryExpr(first,left,op,right);
         }
+
+        return left;
+    }
+
+    Expr comparisonExpr() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        IToken op = null;
+        Expr left = additiveExpr();
+        Expr right = null;
+
         while (isKind(IToken.Kind.LT, IToken.Kind.GT, IToken.Kind.EQUALS, IToken.Kind.NOT_EQUALS, IToken.Kind.GE, IToken.Kind.LE)){
             op = parsing;
             consume();
-            right = binaryExpr();
+            right = additiveExpr();
             left = new BinaryExpr(first,left,op,right);
         }
+
+        return left;
+    }
+
+    Expr logicalAndExpr() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        IToken op = null;
+        Expr left = comparisonExpr();
+        Expr right = null;
+
         while (isKind(IToken.Kind.AND)){
             op = parsing;
             consume();
-            right = binaryExpr();
+            right = comparisonExpr();
             left = new BinaryExpr(first,left,op,right);
         }
+
+        return left;
+    }
+
+    Expr logicalOrExpr() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        IToken op = null;
+        Expr left = logicalAndExpr();
+        Expr right = null;
+
         while (isKind(IToken.Kind.OR)){
             op = parsing;
             consume();
-            right = binaryExpr();
+            right = logicalAndExpr();
             left = new BinaryExpr(first,left,op,right);
         }
+
         return left;
+    }
+
+    Expr conditionalExpr() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        Expr condition = null;
+        Expr ifCond = null;
+        Expr elseCond = null;
+        match(IToken.Kind.KW_IF);
+        match(IToken.Kind.LPAREN);
+        condition = expr();
+        match(IToken.Kind.RPAREN);
+        ifCond = expr();
+        match(IToken.Kind.KW_ELSE);
+        elseCond = expr();
+        match(IToken.Kind.KW_FI);
+        return new ConditionalExpr(first,condition,ifCond,elseCond);
     }
 
 
