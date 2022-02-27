@@ -9,9 +9,11 @@ public class CompilerComponentFactory {
 	//This method will be invoked to get an instance of your lexer.  
 	public static ILexer getLexer(String input) {
 		return new Lexer(input);
-		      //return new Lexer(input); 
-		//throw new UnsupportedOperationException(
-		//		"CompilerComponentFactory must be modified to return an instance of your lexer");
+
+	}
+	public static IParser getParser(String input) {
+		return new Parser(input);
+
 	}
 	
 }
