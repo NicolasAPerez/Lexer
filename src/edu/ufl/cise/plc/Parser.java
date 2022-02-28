@@ -44,17 +44,13 @@ public class Parser implements IParser {
             throw new SyntaxException("ERROR: " + parsing.getText() + " is not of Kind: " + kind.name());
         }
     }
-
-    protected boolean parsePeek(IToken.Kind kind) throws LexicalException {
-        return lex.peek().getKind() == kind;
-    }
-    protected boolean parsePeek(IToken.Kind... kinds) throws LexicalException {
-        for (IToken.Kind kind : kinds){
-            if (lex.peek().getKind() == kind){
-                return true;
-            }
+    void match(IToken.Kind... kinds) throws LexicalException, SyntaxException {
+        if (isKind(kinds)){
+            parsing = lex.next();
         }
-        return false;
+        else {
+            throw new SyntaxException("ERROR: " + parsing.getText() + " is not of Kinds list starting with: " + kinds[0].name());
+        }
     }
 
     //Non-Terminal Check Funcs (used to condense checking)
@@ -63,6 +59,9 @@ public class Parser implements IParser {
     }
     private boolean isUnaryExpr(){
         return isKind(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.COLOR_OP, IToken.Kind.IMAGE_OP) || isPrimaryExpr();
+    }
+    private boolean isStatement(){
+        return isKind(IToken.Kind.IDENT, IToken.Kind.KW_WRITE, IToken.Kind.RETURN);
     }
 
 
@@ -112,18 +111,34 @@ public class Parser implements IParser {
             expression = expr();
             match(IToken.Kind.RPAREN);
         }
+        else if (isKind(IToken.Kind.COLOR_CONST)){
+            expression = new ColorConstExpr(first);
+            consume();
+        }
+        else if (isKind(IToken.Kind.LANGLE)){
+            consume();
+            Expr color1 = expr();
+            match(IToken.Kind.COMMA);
+            Expr color2 = expr();
+            match(IToken.Kind.COMMA);
+            Expr color3 = expr();
+            match(IToken.Kind.RANGLE);
+            expression = new ColorExpr(first,color1,color2,color3);
+        }
+        else if (isKind(IToken.Kind.KW_CONSOLE)){
+            expression = new ConsoleExpr(first);
+            consume();
+        }
         else{
             throw new SyntaxException("ERROR: " + first.getText() + " is not a " + "PrimaryExpr");
         }
         return expression;
-
     }
 
     PixelSelector pixelSelector() throws LexicalException, SyntaxException {
         IToken first = parsing;
         Expr left = null;
         Expr right = null;
-
 
         if (isKind(IToken.Kind.LSQUARE)){
             consume();
@@ -262,6 +277,127 @@ public class Parser implements IParser {
         elseCond = expr();
         match(IToken.Kind.KW_FI);
         return new ConditionalExpr(first,condition,ifCond,elseCond);
+    }
+
+    //TODO: Check for implementation errors(illegal implementations for project) through LL(1) of the CompleteSyntaxList
+
+    Dimension dimension() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        Expr left = null;
+        Expr right = null;
+
+        if (isKind(IToken.Kind.LSQUARE)){
+            consume();
+            left = expr();
+            match(IToken.Kind.COMMA);
+            right = expr();
+            match(IToken.Kind.RSQUARE);
+        }
+        else{
+            throw new SyntaxException("ERROR: " + first.getText() + " is not a " + "PixelSelector");
+        }
+        return new Dimension(first,left,right);
+    }
+
+    Statement statement() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        Statement state = null;
+        Expr expression = null;
+        Expr rightExpr = null;
+        PixelSelector pixel = null;
+
+        if (isKind(IToken.Kind.IDENT)) {
+            String name = parsing.getText();
+            consume();
+            if (isKind(IToken.Kind.LSQUARE)) {
+                pixel = pixelSelector();
+            }
+            if (isKind(IToken.Kind.ASSIGN)){
+                consume();
+                expression = expr();
+                state = new AssignmentStatement(parsing,name,pixel,expression);
+            }
+            else if (isKind(IToken.Kind.LARROW)){
+                consume();
+                expression = expr();
+                state = new ReadStatement(parsing,name,pixel,expression);
+            }
+            else{
+                throw new SyntaxException("ERROR: " + first.getText() + " is not a " + "Statement");
+            }
+        }
+        else if (isKind(IToken.Kind.KW_WRITE)){
+            consume();
+            expression = expr();
+            match(IToken.Kind.RARROW);
+            rightExpr = expr();
+            state = new WriteStatement(first,expression,rightExpr);
+        }
+        else if (isKind(IToken.Kind.RETURN)){
+            consume();
+            expression = expr();
+            state = new ReturnStatement(first,expression);
+        }
+        else {
+            throw new SyntaxException("ERROR: " + first.getText() + " is not a " + "Statement");
+
+        }
+        return state;
+
+    }
+
+    NameDef nameDef() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        //TODO: Change from Lexer implementation of type to parser implementation
+        IToken type = null;
+        Dimension dim = null;
+        IToken name = null;
+        NameDef def = null;
+
+        type = parsing;
+        match(IToken.Kind.TYPE);
+
+        if (isKind(IToken.Kind.LSQUARE)){
+            dim = dimension();
+            name = parsing;
+            match(IToken.Kind.IDENT);
+
+            def = new NameDefWithDim(first,type,name,dim);
+        }
+        else{
+            name = parsing;
+            match(IToken.Kind.IDENT);
+            def = new NameDef(first,type,name);
+        }
+        return def;
+
+    }
+
+    Declaration declaration() throws LexicalException, SyntaxException {
+        IToken first = parsing;
+        Expr rightExpr = null;
+        Declaration dec = null;
+        IToken op = null;
+
+        dec = nameDef();
+
+        if (isKind(IToken.Kind.ASSIGN, IToken.Kind.LARROW)){
+            op = parsing;
+            consume();
+            rightExpr = expr();
+            dec = new VarDeclaration(first, (NameDef) dec,op,rightExpr);
+        }
+        return dec;
+    }
+
+    Program program(){
+        //TODO: Implement program and use Types.type instead of IToken.Kind.TYPE
+
+        IToken first = parsing;
+        Types type = null;
+
+
+        return null;
     }
 
 
