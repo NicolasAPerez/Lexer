@@ -789,4 +789,26 @@ class Assignment3StarterTest {
 		show("Expected LexicalException:     " + e);
 	}
 
+	@DisplayName("testEOF")
+	@Test
+	public void testEOF(TestInfo testInfo) throws Exception {
+		String input = """
+				int f()
+				float x;
+				x = 3.33 * 5.55;
+				write x -> console;
+				^ x + 1;
+				
+				3.50
+
+				""";
+		show("-------------");
+		show(input);
+		Exception e = assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			ASTNode ast = getAST(input);
+		});
+		show("Expected SyntaxException:     " + e);
+	}
+
 }

@@ -266,7 +266,7 @@ public class Lexer implements ILexer{
                                 val = val + toTokens[tokenPos];
                             }
                             else {
-                                throw new LexicalException("ERROR!");
+                                throw new LexicalException("ERROR: char '" + toTokens[tokenPos] + "' does not start a valid token");
                             }
                         }
                     }
@@ -319,7 +319,7 @@ public class Lexer implements ILexer{
                         val = val + toTokens[tokenPos];
                     }
                     else {
-                        throw new LexicalException("Leading float demical");
+                        throw new LexicalException("ERROR: Float has decimal but is missing digits");
 
                     }
 
@@ -448,7 +448,7 @@ public class Lexer implements ILexer{
                             Integer.parseInt(val);
                         }
                         catch (Exception e){
-                            throw new LexicalException("INT TOO LARGE!");
+                            throw new LexicalException("ERROR: " + val + " exceeds max int val");
                         }
                         kind = IToken.Kind.INT_LIT;
                         state = State.ENDTOKEN;
@@ -466,7 +466,7 @@ public class Lexer implements ILexer{
                             val = val + toTokens[tokenPos];
                         }
                         case '\0' ->{
-                            throw new LexicalException("UNBOUNDED STRING!");
+                            throw new LexicalException("ERROR: String is unbounded");
                         }
                         case '\\' ->{
                             val = val + toTokens[tokenPos];
@@ -494,7 +494,7 @@ public class Lexer implements ILexer{
                             state = State.IS_STRING;
                         }
                         default -> {
-                            throw new LexicalException("UNMATCHED ESCAPE");
+                            throw new LexicalException("ERROR: Escape char has no valid following char");
                         }
                     }
                 }
@@ -508,7 +508,7 @@ public class Lexer implements ILexer{
                             Float.parseFloat(val);
                         }
                         catch (Exception e){
-                            throw new LexicalException("FLOAT CHECK FAILED!");
+                            throw new LexicalException("ERROR: " + val + " has failed float casting");
                         }
                         kind = IToken.Kind.FLOAT_LIT;
                         state = State.ENDTOKEN;

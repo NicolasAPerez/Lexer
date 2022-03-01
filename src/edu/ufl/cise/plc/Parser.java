@@ -2,6 +2,9 @@ package edu.ufl.cise.plc;
 
 import edu.ufl.cise.plc.ast.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Parser implements IParser {
     Lexer lex;
     int sourcePos;
@@ -17,8 +20,14 @@ public class Parser implements IParser {
     @Override
     public ASTNode parse() throws PLCException {
         parsing = lex.next();
+        Program program = program();
+        //Check is end reached?
 
-        return expr();
+        if (!isKind(IToken.Kind.EOF)){
+            throw new SyntaxException("ERROR: " + parsing.getText() + " is outside main program!");
+        }
+
+        return program;
     }
 
     //HELPERS
@@ -55,7 +64,7 @@ public class Parser implements IParser {
 
     //Non-Terminal Check Funcs (used to condense checking)
     private boolean isPrimaryExpr(){
-        return isKind(IToken.Kind.BOOLEAN_LIT, IToken.Kind.STRING_LIT, IToken.Kind.INT_LIT, IToken.Kind.FLOAT_LIT, IToken.Kind.IDENT, IToken.Kind.LPAREN);
+        return isKind(IToken.Kind.BOOLEAN_LIT, IToken.Kind.STRING_LIT, IToken.Kind.INT_LIT, IToken.Kind.FLOAT_LIT, IToken.Kind.IDENT, IToken.Kind.LPAREN, IToken.Kind.COLOR_CONST, IToken.Kind.KW_CONSOLE, IToken.Kind.LANGLE);
     }
     private boolean isUnaryExpr(){
         return isKind(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.COLOR_OP, IToken.Kind.IMAGE_OP) || isPrimaryExpr();
@@ -348,7 +357,6 @@ public class Parser implements IParser {
 
     NameDef nameDef() throws LexicalException, SyntaxException {
         IToken first = parsing;
-        //TODO: Change from Lexer implementation of type to parser implementation
         IToken type = null;
         Dimension dim = null;
         IToken name = null;
@@ -385,19 +393,51 @@ public class Parser implements IParser {
             op = parsing;
             consume();
             rightExpr = expr();
-            dec = new VarDeclaration(first, (NameDef) dec,op,rightExpr);
         }
+
+        dec = new VarDeclaration(first, (NameDef) dec,op,rightExpr);
+
         return dec;
     }
 
-    Program program(){
-        //TODO: Implement program and use Types.type instead of IToken.Kind.TYPE
+    Program program() throws LexicalException, SyntaxException {
 
         IToken first = parsing;
-        Types type = null;
+        IToken type = null;
+        IToken name = null;
+        List<NameDef> nameDefList = new ArrayList<>();
+        List<ASTNode> decOrState = new ArrayList<>();
+
+        type = parsing;
+        match(IToken.Kind.TYPE, IToken.Kind.KW_VOID);
+        name = parsing;
+        match(IToken.Kind.IDENT);
+        match(IToken.Kind.LPAREN);
+
+        if (isKind(IToken.Kind.TYPE)){
+            nameDefList.add(nameDef());
+
+            while (isKind(IToken.Kind.COMMA)){
+                consume();
+                nameDefList.add(nameDef());
+            }
+        }
+        match(IToken.Kind.RPAREN);
+        while (isStatement() || isKind(IToken.Kind.TYPE)){
+            if (isKind(IToken.Kind.TYPE)){
+                decOrState.add(declaration());
+            }
+            else {
+                decOrState.add(statement());
+            }
+            match(IToken.Kind.SEMI);
+        }
+
+        Types.Type returnVal = Types.Type.toType(type.getText());
 
 
-        return null;
+
+        return new Program(first,returnVal,name.getText(),nameDefList,decOrState);
     }
 
 
