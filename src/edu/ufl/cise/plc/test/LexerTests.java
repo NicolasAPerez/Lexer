@@ -286,6 +286,8 @@ public class LexerTests {
 		Exception e = assertThrows(LexicalException.class, () -> {
 			lexer.next();
 		});
+		show("Expected LexicalException:     " + e);
+
 	}
 
 	@Test
@@ -752,6 +754,8 @@ public class LexerTests {
 		Exception e = assertThrows(LexicalException.class, () -> {
 			lexer.next();
 		});
+		show("Expected LexicalException:     " + e);
+
 	}
 
 	@Test
@@ -789,6 +793,8 @@ public class LexerTests {
 		Exception e = assertThrows(LexicalException.class, () -> {
 			lexer.next();
 		});
+		show("Expected LexicalException:     " + e);
+
 	}
 
 	@Test
@@ -799,6 +805,8 @@ public class LexerTests {
 		Exception e = assertThrows(LexicalException.class, () -> {
 			lexer.next();
 		});
+		show("Expected LexicalException:     " + e);
+
 	}
 
 	@Test
@@ -809,5 +817,6 @@ public class LexerTests {
 		Exception e = assertThrows(LexicalException.class, () -> {
 			lexer.next();
 		});
+		show("Expected LexicalException:     " + e);
 	}
 }
