@@ -36,7 +36,7 @@ import edu.ufl.cise.plc.ast.WriteStatement;
 import static edu.ufl.cise.plc.ast.Types.Type.*;
 
 public class TypeCheckVisitor implements ASTVisitor {
-
+	//TODO: Fix all the exception throwing messages to be more helpful
 	SymbolTable symbolTable = new SymbolTable();  
 	Program root;
 	
@@ -254,6 +254,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 		Type trueCase = (Type) conditionalExpr.getTrueCase().visit(this, arg);
 		Type falseCase = (Type) conditionalExpr.getFalseCase().visit(this, arg);
 
+		check(condition == BOOLEAN, conditionalExpr, "Type of Condition must be boolean");
 		check(trueCase == falseCase, conditionalExpr, "Type of true case does not equal the type of the false case");
 		conditionalExpr.setType(trueCase);
 		return conditionalExpr.getType();
@@ -285,8 +286,78 @@ public class TypeCheckVisitor implements ASTVisitor {
 	//This method several cases--you don't have to implement them all at once.
 	//Work incrementally and systematically, testing as you go.  
 	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
-		//TODO: Implement
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		if (!symbolTable.existsItem(assignmentStatement.getName())){
+				throw new TypeCheckException("Read statement variable has not been declared!");
+		}
+		assignmentStatement.setTargetDec(symbolTable.lookupItem(assignmentStatement.getName()));
+		Type targetType = assignmentStatement.getTargetDec().getType();
+		Type sourceType;
+		assignmentStatement.getTargetDec().setInitialized(true);
+
+		sourceType = (Type) assignmentStatement.getExpr().visit(this, arg);
+		if (assignmentStatement.getExpr() instanceof IdentExpr){
+			IdentExpr temp = (IdentExpr) assignmentStatement.getExpr();
+			check(temp.getDec().isInitialized(), assignmentStatement, "Var used as value not initialized");
+		}
+
+		if (targetType != IMAGE){
+			check(assignmentStatement.getSelector() == null, assignmentStatement, "Non-Image types can not have a pixel selector!");
+
+			if (targetType != sourceType && compatibleAssignmentNotIMG(targetType, sourceType)){
+				assignmentStatement.getExpr().setCoerceTo(targetType);
+			}
+			else {
+				check(sourceType == targetType, assignmentStatement, "Dec types are not compatible");
+			}
+		}
+		else if (assignmentStatement.getSelector() == null){
+
+
+			switch (sourceType){
+				case INT -> {
+					assignmentStatement.getExpr().setCoerceTo(COLOR);
+				}
+				case FLOAT -> {
+					assignmentStatement.getExpr().setCoerceTo(COLORFLOAT);
+				}
+				case COLOR, COLORFLOAT, IMAGE ->{
+
+				}
+				default -> {
+					throw new TypeCheckException("Source type not compatible with Image!");
+				}
+			}
+		}
+		else {
+			//Can not visit pixel selector since the variables are implictly declared rather than explicit
+			//assignmentStatement.getSelector().visit(this, arg);
+			Expr leftTemp = assignmentStatement.getSelector().getX();
+			Expr rightTemp = assignmentStatement.getSelector().getY();
+
+			check(leftTemp instanceof IdentExpr && rightTemp instanceof IdentExpr, assignmentStatement, "Pixel Selector X and Y must be Idents");
+			IdentExpr left = (IdentExpr) leftTemp;
+			IdentExpr right = (IdentExpr) rightTemp;
+			left.setType(INT);
+			right.setType(INT);
+			check(!symbolTable.existsItem( left.getFirstToken().getText()) && !symbolTable.existsItem(right.getFirstToken().getText()), assignmentStatement, "Variable already exists");
+
+			switch (sourceType){
+				case INT -> {
+					assignmentStatement.getExpr().setCoerceTo(COLOR);
+				}
+				case FLOAT -> {
+					assignmentStatement.getExpr().setCoerceTo(COLORFLOAT);
+				}
+				case COLOR, COLORFLOAT, IMAGE ->{
+
+				}
+				default -> {
+					throw new TypeCheckException("Source type not compatible with Image!");
+				}
+			}
+
+		}
+		return assignmentStatement.getTargetDec().getType();
 	}
 
 
@@ -302,7 +373,11 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
+		if (!symbolTable.existsItem(readStatement.getName())){
+			throw new TypeCheckException("Read statement variable has not been declared!");
+		}
 		Type targetType = symbolTable.lookupItem(readStatement.getName()).getType();
+
 		Type sourceType = (Type) readStatement.getSource().visit(this, arg);
 		if (readStatement.getSelector() != null){
 			throw new TypeCheckException("Read Statements cannot have a Pixel Selector");
@@ -367,9 +442,11 @@ public class TypeCheckVisitor implements ASTVisitor {
 		}
 		else {
 			//If the Dec has no Initializer
-			if (nameDefType == IMAGE && declaration.getDim() == null){
-				throw new TypeCheckException("ERROR: Image has no initializer and no dimension");
+			if (nameDefType == IMAGE){
+				check(declaration.getDim() != null,declaration,"ERROR: Image has no initializer and no dimension");
+				declaration.getDim().visit(this, arg);
 			}
+
 		}
 		return nameDefType;
 	}
