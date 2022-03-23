@@ -4,6 +4,8 @@ package edu.ufl.cise.plc;
 //want as long as it implements the ILexer interface and you have provided an appropriate body for the getLexer method.
 
 
+import edu.ufl.cise.plc.ast.ASTVisitor;
+
 public class CompilerComponentFactory {
 	
 	//This method will be invoked to get an instance of your lexer.  
@@ -14,6 +16,10 @@ public class CompilerComponentFactory {
 	public static IParser getParser(String input) {
 		return new Parser(input);
 
+	}
+
+	public static ASTVisitor getTypeChecker(){
+		return new TypeCheckVisitor();
 	}
 	
 }

@@ -288,7 +288,6 @@ public class Parser implements IParser {
         return new ConditionalExpr(first,condition,ifCond,elseCond);
     }
 
-    //TODO: Check for implementation errors(illegal implementations for project) through LL(1) of the CompleteSyntaxList
 
     Dimension dimension() throws LexicalException, SyntaxException {
         IToken first = parsing;
