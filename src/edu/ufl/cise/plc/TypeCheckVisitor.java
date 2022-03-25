@@ -342,13 +342,10 @@ public class TypeCheckVisitor implements ASTVisitor {
 			check(!symbolTable.existsItem( left.getFirstToken().getText()) && !symbolTable.existsItem(right.getFirstToken().getText()), assignmentStatement, "Variable already exists");
 
 			switch (sourceType){
-				case INT -> {
+				case INT,FLOAT,COLORFLOAT -> {
 					assignmentStatement.getExpr().setCoerceTo(COLOR);
 				}
-				case FLOAT -> {
-					assignmentStatement.getExpr().setCoerceTo(COLORFLOAT);
-				}
-				case COLOR, COLORFLOAT, IMAGE ->{
+				case COLOR ->{
 
 				}
 				default -> {
@@ -387,9 +384,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 		if (sourceType == CONSOLE){
 			readStatement.getSource().setCoerceTo(targetType);
 		}
-		else {
-			check(sourceType == targetType, readStatement, "Read Statement source type is string, but does not match target type"); // TODO: Check if this is necessary
-		}
+
 		symbolTable.lookupItem(readStatement.getName()).setInitialized(true);
 		return null;
 	}
@@ -415,9 +410,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 				if (initialType == CONSOLE){
 					declaration.getExpr().setCoerceTo(nameDefType);
 				}
-				else {
-					check(initialType == nameDefType, declaration, "Read declaration types do not match"); //TODO: Check if this is necessary
-				}
+
 
 			}
 			else if (declaration.getOp().getKind() == Kind.ASSIGN){
