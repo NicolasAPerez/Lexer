@@ -21,5 +21,8 @@ public class CompilerComponentFactory {
 	public static ASTVisitor getTypeChecker(){
 		return new TypeCheckVisitor();
 	}
-	
+
+    public static ASTVisitor getCodeGenerator(String packageName) {
+		return new CodeGenVisitor(packageName);
+    }
 }
