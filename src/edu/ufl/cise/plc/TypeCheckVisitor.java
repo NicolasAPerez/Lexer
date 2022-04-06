@@ -294,13 +294,14 @@ public class TypeCheckVisitor implements ASTVisitor {
 		Type sourceType;
 		assignmentStatement.getTargetDec().setInitialized(true);
 
-		sourceType = (Type) assignmentStatement.getExpr().visit(this, arg);
 		if (assignmentStatement.getExpr() instanceof IdentExpr){
 			IdentExpr temp = (IdentExpr) assignmentStatement.getExpr();
 			check(temp.getDec().isInitialized(), assignmentStatement, "Var used as value not initialized");
 		}
 
 		if (targetType != IMAGE){
+			sourceType = (Type) assignmentStatement.getExpr().visit(this, arg);
+
 			check(assignmentStatement.getSelector() == null, assignmentStatement, "Non-Image types can not have a pixel selector!");
 
 			if (targetType != sourceType && compatibleAssignmentNotIMG(targetType, sourceType)){
@@ -311,6 +312,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 			}
 		}
 		else if (assignmentStatement.getSelector() == null){
+			sourceType = (Type) assignmentStatement.getExpr().visit(this, arg);
 
 
 			switch (sourceType){
@@ -341,6 +343,16 @@ public class TypeCheckVisitor implements ASTVisitor {
 			right.setType(INT);
 			check(!symbolTable.existsItem( left.getFirstToken().getText()) && !symbolTable.existsItem(right.getFirstToken().getText()), assignmentStatement, "Variable already exists");
 
+			NameDef leftTempDef = new NameDef(left.getFirstToken(), "int", left.getFirstToken().getText());
+			NameDef rightTempDef = new NameDef(rightTemp.getFirstToken(), "int", right.getFirstToken().getText());
+
+			leftTempDef.setInitialized(true);
+			rightTempDef.setInitialized(true);
+			symbolTable.addItem(left.getFirstToken().getText(), leftTempDef);
+			symbolTable.addItem(right.getFirstToken().getText(), rightTempDef);
+
+			sourceType = (Type) assignmentStatement.getExpr().visit(this, arg);
+
 			switch (sourceType){
 				case INT,FLOAT,COLORFLOAT -> {
 					assignmentStatement.getExpr().setCoerceTo(COLOR);
@@ -352,6 +364,9 @@ public class TypeCheckVisitor implements ASTVisitor {
 					throw new TypeCheckException("Source type not compatible with Image!");
 				}
 			}
+			symbolTable.removeItem(left.getFirstToken().getText());
+			symbolTable.removeItem(right.getFirstToken().getText());
+
 
 		}
 		return assignmentStatement.getTargetDec().getType();
