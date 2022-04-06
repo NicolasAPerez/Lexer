@@ -3,11 +3,17 @@ package edu.ufl.cise.plc;
 
 import edu.ufl.cise.plc.ast.Types.Type;
 
+import java.util.Vector;
+
 public class CGStringBuilder {
     StringBuilder str;
+    int indexImport;
+    Vector<String> imported;
 
     CGStringBuilder(){
         str = new StringBuilder();
+        indexImport = 0;
+        imported = new Vector<>();
     }
     public  CGStringBuilder append(String s){
         str.append(s);
@@ -19,6 +25,10 @@ public class CGStringBuilder {
     }
     public  CGStringBuilder append(float f){
         str.append(f);
+        return this;
+    }
+    public  CGStringBuilder append(boolean b){
+        str.append(b);
         return this;
     }
     public String toString(){
@@ -40,6 +50,14 @@ public class CGStringBuilder {
         str.append('}');
         return this;
     }
+    public CGStringBuilder lParen(){
+        str.append('(');
+        return this;
+    }
+    public CGStringBuilder rParen(){
+        str.append(')');
+        return this;
+    }
     public CGStringBuilder tab(){
         str.append('\t');
         return this;
@@ -57,21 +75,25 @@ public class CGStringBuilder {
         str.append("package ");
         str.append(pack);
         semiEnd();
+        indexImport = str.length();
         return this;
     }
 
     public CGStringBuilder importer(String imp){
-        str.append("import ");
-        str.append(imp);
-        semiEnd();
+        if (!imported.contains(imp)) {
+            str.insert(indexImport, "import " + imp + "; \n");
+            imported.add(imp);
+        }
+
         return this;
     }
 
     public CGStringBuilder importer(String... imp){
         for (String i : imp){
-            str.append("import ");
-            str.append(i);
-            semiEnd();
+            if (!imported.contains(i)) {
+                str.insert(indexImport, "import " + i + "; \n");
+                imported.add(i);
+            }
         }
         return this;
     }
@@ -111,5 +133,31 @@ public class CGStringBuilder {
 
         }
         return this;
+    }
+    public CGStringBuilder appendObjType(Type type){
+        switch (type){
+            case INT ->{
+                append("Integer");
+            }
+            case STRING ->{
+                append("String");
+            }
+            case FLOAT -> {
+                append("Float");
+            }
+            case BOOLEAN -> {
+                append("Boolean");
+            }
+
+        }
+        return this;
+    }
+    public CGStringBuilder coerceTo(Type original, Type coerce){
+        if (coerce != null){
+            if (original != coerce){
+                lParen().appendType(coerce).rParen().append(" ");
+            }
+        }
+       return this;
     }
 }

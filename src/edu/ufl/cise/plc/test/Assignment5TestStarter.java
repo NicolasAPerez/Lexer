@@ -106,6 +106,7 @@ class Assignment5TestStarter {
 		checkResult(input,  null, 42);
 	}
 
+	@Test
 	void test2() throws Exception {
 		String input = """
 				string y() ^ "hello";
@@ -268,6 +269,18 @@ class Assignment5TestStarter {
 				^x4;
 				""";
 		checkResult(input, (34+56)/3);
+	}
+
+	@Test
+	void floatToInt() throws Exception {
+		String input = "int y() int f = 42.0; ^f;";
+		checkResult(input,  null, 42);
+	}
+
+	@Test
+	void intToFloat() throws Exception {
+		String input = "float y() float f = 42; ^f;";
+		checkResult(input,  null, 42.0f);
 	}
 
 

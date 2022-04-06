@@ -38,30 +38,72 @@ import static edu.ufl.cise.plc.ast.Types.Type.*;
 public class CodeGenVisitor implements  ASTVisitor{
 
     String packageName;
+    CGStringBuilder javaP;
 
     public CodeGenVisitor(String packageName) {
         this.packageName = packageName;
+        javaP = new CGStringBuilder();
+
     }
 
+    @Override
+    public Object visitProgram(Program program, Object arg) throws Exception {
+        javaP.packager(packageName);
+        javaP.classStarter(program.getName());
+
+        javaP.append("public static ").appendType(program.getReturnType()).append(" apply").lParen();
+
+        List<NameDef> parameters = program.getParams();
+
+
+        for (int i = 0; i < parameters.size(); i++){
+            parameters.get(i).visit(this, arg);
+            if (i < parameters.size() - 1){
+                javaP.comma();
+            }
+        }
+        javaP.rParen().lBracket().newLine();
+
+        List<ASTNode> decsAndStatements = program.getDecsAndStatements();
+
+        for (ASTNode node : decsAndStatements) {
+            javaP.tab().tab();
+            node.visit(this, arg);
+        }
+        javaP.tab().rBracket().newLine();
+        javaP.rBracket().newLine();
+
+        System.out.println(javaP.toString());
+
+        return javaP.toString();
+    }
 
     @Override
     public Object visitBooleanLitExpr(BooleanLitExpr booleanLitExpr, Object arg) throws Exception {
-        return null;
+        javaP.append(booleanLitExpr.getValue());
+        return javaP;
     }
 
     @Override
     public Object visitStringLitExpr(StringLitExpr stringLitExpr, Object arg) throws Exception {
-        return null;
+        javaP.append("\"\"\"").newLine();
+        javaP.append(stringLitExpr.getValue());
+        javaP.append("\"\"\"");
+        return javaP;
     }
 
     @Override
     public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
-        return null;
+        javaP.coerceTo(intLitExpr.getType(), intLitExpr.getCoerceTo());
+        javaP.append(intLitExpr.getValue());
+        return javaP;
     }
 
     @Override
     public Object visitFloatLitExpr(FloatLitExpr floatLitExpr, Object arg) throws Exception {
-        return null;
+        javaP.coerceTo(floatLitExpr.getType(), floatLitExpr.getCoerceTo());
+        javaP.append(floatLitExpr.getValue()).append("f");
+        return javaP;
     }
 
     @Override
@@ -71,7 +113,11 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitConsoleExpr(ConsoleExpr consoleExpr, Object arg) throws Exception {
-        return null;
+        javaP.importer("edu.ufl.cise.plc.runtime.ConsoleIO");
+        javaP.lParen().appendObjType(consoleExpr.getCoerceTo()).rParen().append(" ");
+        javaP.append("ConsoleIO.readValueFromConsole").lParen().append("\"").append(consoleExpr.getCoerceTo().toString().toUpperCase()).append("\"").comma();
+        javaP.append("\"Enter ").appendObjType(consoleExpr.getCoerceTo()).append(": \"").rParen();
+        return javaP;
     }
 
     @Override
@@ -81,22 +127,38 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitUnaryExpr(UnaryExpr unaryExpression, Object arg) throws Exception {
-        return null;
+        javaP.lParen().append(unaryExpression.getOp().getText());
+        unaryExpression.getExpr().visit(this,arg);
+        javaP.rParen();
+        return javaP;
     }
 
     @Override
     public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
-        return null;
+        javaP.lParen();
+        binaryExpr.getLeft().visit(this,arg);
+        javaP.append(" ").append(binaryExpr.getOp().getText()).append(" ");
+        binaryExpr.getRight().visit(this, arg);
+        javaP.rParen();
+        return javaP;
     }
 
     @Override
     public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
-        return null;
+        javaP.coerceTo(identExpr.getType(), identExpr.getCoerceTo());
+        javaP.append(identExpr.getFirstToken().getText());
+        return javaP;
     }
 
     @Override
     public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
-        return null;
+        javaP.lParen();
+        conditionalExpr.getCondition().visit(this, arg);
+        javaP.rParen().append("? ");
+        conditionalExpr.getTrueCase().visit(this, arg);
+        javaP.append(" : ");
+        conditionalExpr.getFalseCase().visit(this, arg);
+        return javaP;
     }
 
     @Override
@@ -111,27 +173,36 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
-        return null;
+        javaP.append(assignmentStatement.getName()).append(" = ");
+        assignmentStatement.getExpr().visit(this, arg);
+        javaP.semiEnd();
+        return javaP;
     }
 
     @Override
     public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
-        return null;
+        javaP.importer("edu.ufl.cise.plc.runtime.ConsoleIO");
+        javaP.append("ConsoleIO.console.println").lParen();
+        writeStatement.getSource().visit(this, arg);
+        javaP.rParen();
+        javaP.semiEnd();
+        return javaP;
     }
 
     @Override
     public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
-        return null;
+        javaP.append(readStatement.getName()).append(" = ");
+        readStatement.getSource().visit(this, arg);
+        javaP.semiEnd();
+        return javaP;
     }
 
-    @Override
-    public Object visitProgram(Program program, Object arg) throws Exception {
-        return null;
-    }
+
 
     @Override
     public Object visitNameDef(NameDef nameDef, Object arg) throws Exception {
-        return null;
+        javaP.appendType(nameDef.getType()).append(" ").append(nameDef.getName());
+        return javaP;
     }
 
     @Override
@@ -141,12 +212,25 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitReturnStatement(ReturnStatement returnStatement, Object arg) throws Exception {
-        return null;
+        Expr expr = returnStatement.getExpr();
+        javaP.append("return ");
+        expr.visit(this, arg);
+        javaP.semiEnd();
+        return javaP;
     }
 
     @Override
     public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
-        return null;
+        declaration.getNameDef().visit(this, arg);
+        if (declaration.getOp() == null){
+            javaP.semiEnd();
+        }
+        else {
+            javaP.append(" = ");
+            declaration.getExpr().visit(this, arg);
+            javaP.semiEnd();
+        }
+        return javaP;
     }
 
     @Override
