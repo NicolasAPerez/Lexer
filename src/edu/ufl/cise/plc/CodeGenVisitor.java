@@ -73,7 +73,6 @@ public class CodeGenVisitor implements  ASTVisitor{
         javaP.tab().rBracket().newLine();
         javaP.rBracket().newLine();
 
-        System.out.println(javaP.toString());
 
         return javaP.toString();
     }
@@ -127,6 +126,7 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitUnaryExpr(UnaryExpr unaryExpression, Object arg) throws Exception {
+        javaP.coerceTo(unaryExpression.getType(), unaryExpression.getCoerceTo());
         javaP.lParen().append(unaryExpression.getOp().getText());
         unaryExpression.getExpr().visit(this,arg);
         javaP.rParen();
@@ -135,10 +135,20 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
+        javaP.coerceTo(binaryExpr.getType(), binaryExpr.getCoerceTo());
         javaP.lParen();
         binaryExpr.getLeft().visit(this,arg);
-        javaP.append(" ").append(binaryExpr.getOp().getText()).append(" ");
-        binaryExpr.getRight().visit(this, arg);
+        if (binaryExpr.getLeft().getType() == STRING && binaryExpr.getRight().getType() == STRING && binaryExpr.getOp().getText().equals("==")) {
+            javaP.append(".equals").lParen();
+            binaryExpr.getRight().visit(this, arg);
+            javaP.rParen();
+
+        }
+        else{
+            javaP.append(" ").append(binaryExpr.getOp().getText()).append(" ");
+            binaryExpr.getRight().visit(this, arg);
+
+        }
         javaP.rParen();
         return javaP;
     }
@@ -152,12 +162,19 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
+        if (conditionalExpr.getType() != conditionalExpr.getCoerceTo()){
+            javaP.coerceTo(conditionalExpr.getType(), conditionalExpr.getCoerceTo()).lParen();
+        }
         javaP.lParen();
         conditionalExpr.getCondition().visit(this, arg);
         javaP.rParen().append("? ");
         conditionalExpr.getTrueCase().visit(this, arg);
         javaP.append(" : ");
         conditionalExpr.getFalseCase().visit(this, arg);
+
+        if (conditionalExpr.getType() != conditionalExpr.getCoerceTo()){
+            javaP.rParen();
+        }
         return javaP;
     }
 

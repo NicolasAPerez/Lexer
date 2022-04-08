@@ -295,6 +295,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 		assignmentStatement.getTargetDec().setInitialized(true);
 
 		if (assignmentStatement.getExpr() instanceof IdentExpr){
+			sourceType = (Type) assignmentStatement.getExpr().visit(this, arg);
 			IdentExpr temp = (IdentExpr) assignmentStatement.getExpr();
 			check(temp.getDec().isInitialized(), assignmentStatement, "Var used as value not initialized");
 		}
