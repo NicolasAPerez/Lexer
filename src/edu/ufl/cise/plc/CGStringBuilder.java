@@ -62,6 +62,12 @@ public class CGStringBuilder {
         str.append('\t');
         return this;
     }
+    public CGStringBuilder tabTo(int x){
+        for (int i = 0; i < x; i++){
+            tab();
+        }
+        return this;
+    }
     public CGStringBuilder newLine(){
         str.append('\n');
         return this;
@@ -104,18 +110,6 @@ public class CGStringBuilder {
         return this;
     }
 
-    public CGStringBuilder appendType(String type){
-        switch (type){
-            case "int", "boolean", "float" ->{
-                append(type);
-            }
-            case "string" ->{
-                append("String");
-            }
-
-        }
-        return this;
-    }
     public CGStringBuilder appendType(Type type){
         switch (type){
             case INT ->{
@@ -129,6 +123,18 @@ public class CGStringBuilder {
             }
             case BOOLEAN -> {
                 append("boolean");
+            }
+            case IMAGE -> {
+                append("BufferedImage");
+                importer("java.awt.image.BufferedImage");
+            }
+            case COLOR -> {
+                append("ColorTuple");
+                importer("edu.ufl.cise.plc.runtime.ColorTuple");
+            }
+            case COLORFLOAT -> {
+                append("ColorTupleFloat");
+                importer("edu.ufl.cise.plc.runtime.ColorTuple");
             }
 
         }

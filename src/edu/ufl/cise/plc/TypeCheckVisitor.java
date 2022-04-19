@@ -415,9 +415,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 			initialType = (Type) declaration.getExpr().visit(this, arg);
 			declaration.getNameDef().setInitialized(true);
 
-			if (nameDefType == IMAGE && initialType != IMAGE){
-				throw new TypeCheckException("ERROR: Image has an initializer but initializer is not of type Image");
-			}
+
 
 			if (declaration.getOp().getKind() == Kind.LARROW){
 				//Treat as Read Statement
@@ -426,11 +424,12 @@ public class TypeCheckVisitor implements ASTVisitor {
 				if (initialType == CONSOLE){
 					declaration.getExpr().setCoerceTo(nameDefType);
 				}
-
-
 			}
 			else if (declaration.getOp().getKind() == Kind.ASSIGN){
 				//Treat as Assign Statement
+				if (nameDefType == IMAGE && initialType != IMAGE){
+					throw new TypeCheckException("ERROR: Image has an initializer but initializer is not of type Image");
+				}
 				if (declaration.getExpr() instanceof IdentExpr){
 					IdentExpr temp = (IdentExpr) declaration.getExpr();
 					check(temp.getDec().isInitialized(), declaration, "Var used as value not initialized");
