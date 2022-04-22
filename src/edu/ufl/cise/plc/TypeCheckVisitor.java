@@ -390,6 +390,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 			throw new TypeCheckException("Read statement variable has not been declared!");
 		}
 		Type targetType = symbolTable.lookupItem(readStatement.getName()).getType();
+		readStatement.setTargetDec(symbolTable.lookupItem(readStatement.getName()));
 
 		Type sourceType = (Type) readStatement.getSource().visit(this, arg);
 		if (readStatement.getSelector() != null){
@@ -427,7 +428,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 			}
 			else if (declaration.getOp().getKind() == Kind.ASSIGN){
 				//Treat as Assign Statement
-				if (nameDefType == IMAGE && initialType != IMAGE){
+				if (nameDefType == IMAGE && (initialType != IMAGE && initialType != COLOR && initialType != COLORFLOAT && initialType != INT)){
 					throw new TypeCheckException("ERROR: Image has an initializer but initializer is not of type Image");
 				}
 				if (declaration.getExpr() instanceof IdentExpr){
@@ -435,7 +436,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 					check(temp.getDec().isInitialized(), declaration, "Var used as value not initialized");
 				}
 
-				if (initialType != nameDefType && compatibleAssignmentNotIMG(nameDefType, initialType)){
+				if (initialType != nameDefType && (compatibleAssignmentNotIMG(nameDefType, initialType) || ((initialType == COLOR || initialType == COLORFLOAT || initialType == INT) && nameDefType == IMAGE))){
 					declaration.getExpr().setCoerceTo(nameDefType);
 				}
 				else {
