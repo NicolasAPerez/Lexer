@@ -136,6 +136,9 @@ public class CGStringBuilder {
                 append("ColorTupleFloat");
                 importer("edu.ufl.cise.plc.runtime.ColorTuple");
             }
+            case VOID -> {
+                append("void");
+            }
 
         }
         return this;
@@ -153,6 +156,18 @@ public class CGStringBuilder {
             }
             case BOOLEAN -> {
                 append("Boolean");
+            }
+            case IMAGE -> {
+                append("BufferedImage");
+                importer("java.awt.image.BufferedImage");
+            }
+            case COLOR -> {
+                append("ColorTuple");
+                importer("edu.ufl.cise.plc.runtime.ColorTuple");
+            }
+            case COLORFLOAT -> {
+                append("ColorTupleFloat");
+                importer("edu.ufl.cise.plc.runtime.ColorTuple");
             }
 
         }

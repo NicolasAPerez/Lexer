@@ -35,6 +35,10 @@ import edu.ufl.cise.plc.ast.VarDeclaration;
 import edu.ufl.cise.plc.ast.WriteStatement;
 import edu.ufl.cise.plc.runtime.ImageOps;
 
+import javax.swing.*;
+
+import static edu.ufl.cise.plc.IToken.Kind.ASSIGN;
+import static edu.ufl.cise.plc.IToken.Kind.EQUALS;
 import static edu.ufl.cise.plc.ast.Types.Type.*;
 
 public class CodeGenVisitor implements  ASTVisitor{
@@ -68,7 +72,9 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitProgram(Program program, Object arg) throws Exception {
-        javaP.packager(packageName);
+        if (!packageName.isEmpty()) {
+            javaP.packager(packageName);
+        }
         javaP.classStarter(program.getName());
 
         javaP.append("public static ").appendType(program.getReturnType()).append(" apply").lParen();
@@ -113,15 +119,29 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
-        javaP.coerceTo(intLitExpr.getType(), intLitExpr.getCoerceTo());
-        javaP.append(intLitExpr.getValue());
+        if (intLitExpr.getCoerceTo() == COLOR || intLitExpr.getCoerceTo() == IMAGE) {
+            javaP.append("new ColorTuple").lParen().append(intLitExpr.getValue()).rParen();
+            javaP.importer("edu.ufl.cise.plc.runtime.ColorTuple");
+        }
+        else{
+            javaP.coerceTo(intLitExpr.getType(), intLitExpr.getCoerceTo());
+            javaP.append(intLitExpr.getValue());
+        }
+
+
         return javaP;
     }
 
     @Override
     public Object visitFloatLitExpr(FloatLitExpr floatLitExpr, Object arg) throws Exception {
-        javaP.coerceTo(floatLitExpr.getType(), floatLitExpr.getCoerceTo());
-        javaP.append(floatLitExpr.getValue()).append("f");
+        if (floatLitExpr.getCoerceTo() != COLORFLOAT) {
+            javaP.coerceTo(floatLitExpr.getType(), floatLitExpr.getCoerceTo());
+            javaP.append(floatLitExpr.getValue()).append("f");
+        }
+        else {
+            javaP.append("new ColorTupleFloat").lParen().append(floatLitExpr.getValue()).rParen();
+            javaP.importer("edu.ufl.cise.plc.runtime.ColorTuple");
+        }
         return javaP;
     }
 
@@ -139,14 +159,27 @@ public class CodeGenVisitor implements  ASTVisitor{
     @Override
     public Object visitConsoleExpr(ConsoleExpr consoleExpr, Object arg) throws Exception {
         javaP.importer("edu.ufl.cise.plc.runtime.ConsoleIO");
-        javaP.lParen().appendObjType(consoleExpr.getCoerceTo()).rParen().append(" ");
-        javaP.append("ConsoleIO.readValueFromConsole").lParen().append("\"").append(consoleExpr.getCoerceTo().toString().toUpperCase()).append("\"").comma();
+
+        if (consoleExpr.getCoerceTo() == IMAGE){
+            javaP.importer("edu.ufl.cise.plc.runtime.FileURLIO");
+            javaP.append("FileURLIO.readImage").lParen();
+            javaP.lParen().append("String").rParen().append(" ");
+            javaP.append("ConsoleIO.readValueFromConsole").lParen().append("\"").append("STRING").append("\"").comma();
+        }
+        else {
+            javaP.lParen().appendObjType(consoleExpr.getCoerceTo()).rParen().append(" ");
+            javaP.append("ConsoleIO.readValueFromConsole").lParen().append("\"").append(consoleExpr.getCoerceTo().toString().toUpperCase()).append("\"").comma();
+
+        }
         if (consoleExpr.getCoerceTo() != COLOR) {
             javaP.append("\"Enter ").appendObjType(consoleExpr.getCoerceTo()).append(": \"").rParen();
         }
         else {
             javaP.append("\"Enter RED, GREEN, BLUE").append(": \"").rParen();
 
+        }
+        if (consoleExpr.getCoerceTo() == IMAGE){
+            javaP.rParen();
         }
         return javaP;
     }
@@ -155,9 +188,16 @@ public class CodeGenVisitor implements  ASTVisitor{
     public Object visitColorExpr(ColorExpr colorExpr, Object arg) throws Exception {
         if (colorExpr.getRed().getType() == INT) {
             javaP.append("new ColorTuple").lParen();
+            javaP.importer("edu.ufl.cise.plc.runtime.ColorTuple");
         }
         else {
+            if (colorExpr.getCoerceTo() == COLOR || colorExpr.getCoerceTo() == IMAGE){
+                javaP.append("new ColorTuple").lParen();
+                javaP.importer("edu.ufl.cise.plc.runtime.ColorTuple");
+            }
             javaP.append("new ColorTupleFloat").lParen();
+            javaP.importer("edu.ufl.cise.plc.runtime.ColorTupleFloat");
+
         }
         colorExpr.getRed().visit(this, arg);
         javaP.comma();
@@ -165,15 +205,53 @@ public class CodeGenVisitor implements  ASTVisitor{
         javaP.comma();
         colorExpr.getBlue().visit(this, arg);
         javaP.rParen();
-        javaP.importer("edu.ufl.cise.plc.runtime.ColorTuple");
+        if (colorExpr.getCoerceTo() == COLOR || colorExpr.getCoerceTo() == IMAGE){
+            javaP.rParen();
+        }
+
         return javaP;
     }
 
     @Override
     public Object visitUnaryExpr(UnaryExpr unaryExpression, Object arg) throws Exception {
         javaP.coerceTo(unaryExpression.getType(), unaryExpression.getCoerceTo());
-        javaP.lParen().append(unaryExpression.getOp().getText());
-        unaryExpression.getExpr().visit(this,arg);
+        javaP.lParen();
+        if (unaryExpression.getOp().getKind() == Kind.IMAGE_OP){
+            javaP.importer("java.awt.image.BufferedImage");
+            unaryExpression.getExpr().visit(this, arg);
+            javaP.append(".").append(unaryExpression.getOp().getText()).lParen().rParen();
+
+        }
+        else if (unaryExpression.getOp().getKind() == Kind.COLOR_OP){
+            if (checkType(unaryExpression.getExpr(), IMAGE)){
+                javaP.importer("edu.ufl.cise.plc.runtime.ImageOps");
+                javaP.append("ImageOps.extract");
+                switch (unaryExpression.getOp().getText()){
+                    case "getRed" ->{
+                        javaP.append("Red");
+                    }
+                    case "getGreen" -> javaP.append("Green");
+                    case "getBlue" ->{
+                        javaP.append("Blue");
+                    }
+                }
+                javaP.lParen();
+                unaryExpression.getExpr().visit(this, arg);
+                javaP.rParen();
+            }
+            else{
+                javaP.importer("edu.ufl.cise.plc.runtime.ColorTuple");
+                javaP.append("ColorTuple.");
+                javaP.append(unaryExpression.getOp().getText());
+                javaP.lParen();
+                unaryExpression.getExpr().visit(this, arg);
+                javaP.rParen();
+            }
+        }
+        else {
+            javaP.append(unaryExpression.getOp().getText());
+            unaryExpression.getExpr().visit(this, arg);
+        }
         javaP.rParen();
         return javaP;
     }
@@ -194,13 +272,26 @@ public class CodeGenVisitor implements  ASTVisitor{
         }
         else if (checkType(binaryExpr.getLeft(), IMAGE)){
             if (checkType(binaryExpr.getRight(), IMAGE)){
-                javaP.append("ImageOps.binaryImageImageOp").lParen().append(translateKind(binaryExpr.getOp().getKind()));
-                javaP.comma();
-                binaryExpr.getLeft().visit(this, arg);
-                javaP.comma();
-                binaryExpr.getRight().visit(this, arg);
-                javaP.rParen();
-                javaP.importer("edu.ufl.cise.plc.runtime.ImageOps");
+                if (binaryExpr.getOp().getKind() == EQUALS || binaryExpr.getOp().getKind() == Kind.NOT_EQUALS){
+                    javaP.append("ColorImageExtra.binaryImageImageOp").lParen().append(translateKind(binaryExpr.getOp().getKind()));
+                    javaP.comma();
+                    binaryExpr.getLeft().visit(this, arg);
+                    javaP.comma();
+                    binaryExpr.getRight().visit(this, arg);
+                    javaP.rParen();
+                    javaP.importer("edu.ufl.cise.plc.runtime.ColorImageExtra");
+                    javaP.importer("edu.ufl.cise.plc.runtime.ImageOps");
+
+                }
+                else {
+                    javaP.append("ImageOps.binaryImageImageOp").lParen().append(translateKind(binaryExpr.getOp().getKind()));
+                    javaP.comma();
+                    binaryExpr.getLeft().visit(this, arg);
+                    javaP.comma();
+                    binaryExpr.getRight().visit(this, arg);
+                    javaP.rParen();
+                    javaP.importer("edu.ufl.cise.plc.runtime.ImageOps");
+                }
             }
             else {
                 javaP.append("ImageOps.binaryImageScalarOp").lParen().append(translateKind(binaryExpr.getOp().getKind()));
@@ -285,14 +376,25 @@ public class CodeGenVisitor implements  ASTVisitor{
                 javaP.importer("edu.ufl.cise.plc.runtime.ImageOps");
 
                 if (assignmentStatement.getTargetDec().getDim() != null) {
-                    javaP.append("resize").lParen();
-                    assignmentStatement.getExpr().visit(this, arg);
-                    javaP.comma();
-                    assignmentStatement.getTargetDec().getDim().visit(this, arg);
-                    javaP.rParen().semiEnd();
+                    if (assignmentStatement.getExpr().getType() == IMAGE) {
+                        javaP.append("ImageOps.resize").lParen();
+                        assignmentStatement.getExpr().visit(this, arg);
+                        javaP.comma();
+                        assignmentStatement.getTargetDec().getDim().visit(this, arg);
+                        javaP.rParen().semiEnd();
+                    }
+                    else {
+                        javaP.append("ColorImageExtra.setAllPixels").lParen();
+                        javaP.append(assignmentStatement.getName());
+                        javaP.comma();
+                        assignmentStatement.getExpr().visit(this, arg);
+                        javaP.rParen().semiEnd();
+                        javaP.importer("edu.ufl.cise.plc.runtime.ColorImageExtra");
+
+                    }
                 }
                 else {
-                    javaP.append("clone").lParen();
+                    javaP.append("ImageOps.clone").lParen();
                     assignmentStatement.getExpr().visit(this, arg);
                     javaP.rParen().semiEnd();
                 }
@@ -316,19 +418,64 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
-        javaP.importer("edu.ufl.cise.plc.runtime.ConsoleIO");
-        javaP.append("ConsoleIO.console.println").lParen();
-        writeStatement.getSource().visit(this, arg);
-        javaP.rParen();
-        javaP.semiEnd();
+        if (checkType(writeStatement.getDest(), CONSOLE)) {
+            javaP.importer("edu.ufl.cise.plc.runtime.ConsoleIO");
+            if (checkType(writeStatement.getDest(), IMAGE)) {
+                javaP.append("ConsoleIO.displayReferenceImageOnScreen").lParen();
+                writeStatement.getSource().visit(this, arg);
+                javaP.rParen();
+                javaP.semiEnd();
+            }
+            else {
+                javaP.append("ConsoleIO.console.println").lParen();
+                writeStatement.getSource().visit(this, arg);
+                javaP.rParen();
+                javaP.semiEnd();
+            }
+        }
+        else {
+            javaP.importer("edu.ufl.cise.plc.runtime.FileURLIO");
+            if (checkType(writeStatement.getSource(), IMAGE)) {
+                javaP.append("FileURLIO.writeImage").lParen();
+                writeStatement.getSource().visit(this, arg);
+                javaP.comma();
+                javaP.append(writeStatement.getDest().getText());
+                javaP.rParen().semiEnd();
+            }
+            else{
+                javaP.append("FileURLIO.writeValue").lParen();
+                writeStatement.getSource().visit(this, arg);
+                javaP.comma();
+                javaP.append(writeStatement.getDest().getText());
+                javaP.rParen().semiEnd();
+            }
+        }
         return javaP;
     }
 
     @Override
     public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
-        javaP.append(readStatement.getName()).append(" = ");
-        readStatement.getSource().visit(this, arg);
-        javaP.semiEnd();
+        if (checkType(readStatement.getSource(), CONSOLE)) {
+            javaP.append(readStatement.getName()).append(" = ");
+            readStatement.getSource().visit(this, arg);
+            javaP.semiEnd();
+        }
+        else{
+            javaP.importer("edu.ufl.cise.plc.runtime.FileURLIO");
+
+            javaP.append(readStatement.getName()).append(" = ");
+            if (readStatement.getTargetDec().getType() == IMAGE) {
+                javaP.append("FileURLIO.readImage").lParen();
+                readStatement.getSource().visit(this, arg);
+
+            }
+            else{
+                javaP.lParen().appendObjType(readStatement.getTargetDec().getType()).rParen();
+                javaP.append("FileURLIO.readValueFromFile").lParen();
+                readStatement.getSource().visit(this, arg);
+            }
+            javaP.semiEnd();
+        }
         return javaP;
     }
 
@@ -357,28 +504,49 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
+
         declaration.getNameDef().visit(this, arg);
 
         if (declaration.getType() != IMAGE) {
             if (declaration.getOp() == null) {
                 javaP.semiEnd();
             }
-            else {
+            else if (declaration.getOp().getKind() == ASSIGN){
                 javaP.append(" = ");
                 declaration.getExpr().visit(this, arg);
                 javaP.semiEnd();
+            }
+            else {
+                javaP.importer("edu.ufl.cise.plc.runtime.FileURLIO");
+                javaP.append(" = ");
+                javaP.lParen().appendObjType(declaration.getType()).rParen();
+                javaP.append("FileURLIO.readValueFromFile").lParen();
+                declaration.getExpr().visit(this, arg);
+                javaP.rParen().semiEnd();
+
             }
         }
         else{
             if (declaration.getNameDef() instanceof NameDefWithDim){
                 if (declaration.getExpr() != null){
-                    javaP.importer("edu.ufl.cise.plc.runtime.FileURLIO");
-                    javaP.append(" = ");
-                    javaP.append("FileURLIO.readImage").lParen();
-                    declaration.getExpr().visit(this, arg);
-                    javaP.comma();
-                    declaration.getDim().visit(this, arg);
-                    javaP.rParen().semiEnd();
+                    if (checkType(declaration.getExpr(), STRING)) {
+                        javaP.importer("edu.ufl.cise.plc.runtime.FileURLIO");
+                        javaP.append(" = ");
+                        javaP.append("FileURLIO.readImage").lParen();
+                        declaration.getExpr().visit(this, arg);
+                        javaP.comma();
+                        declaration.getDim().visit(this, arg);
+                        javaP.rParen().semiEnd();
+                    }
+                    else {
+                        javaP.append(" = ");
+                        javaP.append("ColorImageExtra.setAllPixels").lParen();
+                        declaration.getNameDef().getDim().visit(this, arg);
+                        javaP.comma();
+                        declaration.getExpr().visit(this, arg);
+                        javaP.rParen().semiEnd();
+                        javaP.importer("edu.ufl.cise.plc.runtime.ColorImageExtra");
+                    }
                 }
                 else {
                     javaP.append(" = ");
@@ -413,6 +581,11 @@ public class CodeGenVisitor implements  ASTVisitor{
 
     @Override
     public Object visitUnaryExprPostfix(UnaryExprPostfix unaryExprPostfix, Object arg) throws Exception {
-        return null;
+        javaP.append("ImageOps.getColorTuple").lParen();
+        unaryExprPostfix.getExpr().visit(this, arg);
+        javaP.comma();
+        unaryExprPostfix.getSelector().visit(this, arg);
+        javaP.rParen();
+        return javaP;
     }
 }
